@@ -101,8 +101,13 @@ class FDBInput(GribInput):
         )
         requests = [self.kwargs | r for r in requests]
         # NOTE: this is a temporary workaround for #191
+        # Metadata.mars_requests()'s own "simplify" step collapses any single-element
+        # list value -- including `param` for a single-param request group -- down to
+        # a bare scalar. Without normalizing back to a list first, iterating a bare
+        # string silently maps it character by character instead of as one param.
         for request in requests:
-            request["param"] = [self.param_id_map.get(p, p) for p in request["param"]]
+            params = request["param"] if isinstance(request["param"], list) else [request["param"]]
+            request["param"] = [self.param_id_map.get(p, p) for p in params]
 
         LOG.debug("FDB requests: %s", requests)
         sources = [ekd.from_source("fdb", request, stream=False, **self.configs) for request in requests]
